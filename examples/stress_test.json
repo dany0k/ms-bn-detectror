@@ -1,0 +1,109 @@
+{
+  "name": "stress-test-profile",
+  "description": "Стресс-тест: постепенный рост до пика, удержание, спад",
+  "start_time": "2025-02-01T09:00:00+00:00",
+  
+  "load_steps": [
+    {
+      "rps": 10,
+      "duration_seconds": 60,
+      "ramp_seconds": 0,
+      "_comment": "Baseline - 1 минута на 10 RPS"
+    },
+    {
+      "rps": 25,
+      "duration_seconds": 60,
+      "ramp_seconds": 15,
+      "_comment": "Плавный рост до 25 RPS"
+    },
+    {
+      "rps": 50,
+      "duration_seconds": 90,
+      "ramp_seconds": 20,
+      "_comment": "Рост до 50 RPS - начало проблем"
+    },
+    {
+      "rps": 75,
+      "duration_seconds": 60,
+      "ramp_seconds": 15,
+      "_comment": "Пик 75 RPS - сильная деградация"
+    },
+    {
+      "rps": 100,
+      "duration_seconds": 30,
+      "ramp_seconds": 10,
+      "_comment": "Максимальная нагрузка"
+    },
+    {
+      "rps": 75,
+      "duration_seconds": 30,
+      "ramp_seconds": 5,
+      "_comment": "Начало спада"
+    },
+    {
+      "rps": 50,
+      "duration_seconds": 30,
+      "ramp_seconds": 5
+    },
+    {
+      "rps": 25,
+      "duration_seconds": 30,
+      "ramp_seconds": 5
+    },
+    {
+      "rps": 10,
+      "duration_seconds": 60,
+      "ramp_seconds": 10,
+      "_comment": "Возврат к baseline"
+    }
+  ],
+  
+  "services": [
+    {
+      "src_service": "load-balancer",
+      "src_route": "/",
+      "dst_service": "api-server",
+      "dst_route": "/handle",
+      "base_latency": 2.0,
+      "latency_noise": 0.3,
+      "_comment": "Load balancer - всегда быстрый"
+    },
+    {
+      "src_service": "api-server",
+      "src_route": "/handle",
+      "dst_service": "auth-service",
+      "dst_route": "/validate",
+      "base_latency": 8.0,
+      "latency_noise": 1.0,
+      "bottleneck": {
+        "rps_threshold": 70,
+        "latency_multiplier": 1.8,
+        "latency_per_rps": 0.5,
+        "_comment": "Мягкий bottleneck на auth при очень высокой нагрузке"
+      }
+    },
+    {
+      "src_service": "api-server",
+      "src_route": "/handle",
+      "dst_service": "postgres",
+      "dst_route": "/query",
+      "base_latency": 25.0,
+      "latency_noise": 3.0,
+      "bottleneck": {
+        "rps_threshold": 40,
+        "latency_multiplier": 2.5,
+        "latency_per_rps": 2.0,
+        "_comment": "Основной bottleneck - база данных"
+      }
+    },
+    {
+      "src_service": "api-server",
+      "src_route": "/handle",
+      "dst_service": "redis",
+      "dst_route": "/cache",
+      "base_latency": 1.5,
+      "latency_noise": 0.2,
+      "_comment": "Redis - супер быстрый, без bottleneck"
+    }
+  ]
+}

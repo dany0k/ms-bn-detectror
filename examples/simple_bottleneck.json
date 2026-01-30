@@ -1,0 +1,37 @@
+{
+  "name": "simple-bottleneck-test",
+  "description": "Простой тест: ступеньки 20->40->60->80 RPS, bottleneck на db при RPS>50",
+  "start_time": "2025-01-20T12:00:00+00:00",
+  
+  "load_steps": [
+    {"rps": 20, "duration_seconds": 30},
+    {"rps": 40, "duration_seconds": 30},
+    {"rps": 60, "duration_seconds": 30},
+    {"rps": 80, "duration_seconds": 30},
+    {"rps": 40, "duration_seconds": 30}
+  ],
+  
+  "services": [
+    {
+      "src_service": "frontend",
+      "src_route": "/api",
+      "dst_service": "backend",
+      "dst_route": "/process",
+      "base_latency": 10.0,
+      "latency_noise": 1.0
+    },
+    {
+      "src_service": "backend",
+      "src_route": "/process",
+      "dst_service": "database",
+      "dst_route": "/query",
+      "base_latency": 20.0,
+      "latency_noise": 2.0,
+      "bottleneck": {
+        "rps_threshold": 50,
+        "latency_multiplier": 3.0,
+        "latency_per_rps": 2.0
+      }
+    }
+  ]
+}
