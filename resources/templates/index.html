@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bottleneck Detector</title>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.27.0/plotly.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 13px;
+    background: #F5F4F0;
+    color: #2C2C2A;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .header {
+    background: #fff;
+    border-bottom: 1px solid #E0DED8;
+    padding: 0 20px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .header-title { font-size: 14px; font-weight: 500; color: #2C2C2A; white-space: nowrap; }
+
+  .path-group {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    max-width: 480px;
+    background: #FAFAF8;
+    border: 1px solid #C8C6BF;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .path-input {
+    flex: 1;
+    height: 32px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-family: inherit;
+    border: none;
+    background: transparent;
+    color: #2C2C2A;
+    outline: none;
+  }
+  .load-btn {
+    height: 32px;
+    padding: 0 14px;
+    font-size: 12px;
+    font-family: inherit;
+    border: none;
+    border-left: 1px solid #C8C6BF;
+    background: #F0EFE9;
+    color: #2C2C2A;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+    font-weight: 500;
+  }
+  .load-btn:hover { background: #E8E6E0; }
+  .load-btn:active { background: #DEDAD2; }
+  .load-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .header-status { font-size: 11px; color: #888780; margin-left: auto; }
+
+  .body { display: grid; grid-template-columns: 260px 1fr; flex: 1; overflow: hidden; }
+
+  .sidebar {
+    background: #fff;
+    border-right: 1px solid #E0DED8;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-search { padding: 10px 12px; border-bottom: 1px solid #E0DED8; flex-shrink: 0; }
+  .sidebar-search input[type="text"] {
+    width: 100%;
+    height: 28px;
+    padding: 0 8px;
+    font-size: 12px;
+    font-family: inherit;
+    border: 1px solid #C8C6BF;
+    border-radius: 5px;
+    background: #FAFAF8;
+    color: #2C2C2A;
+    outline: none;
+  }
+  .sidebar-search input[type="text"]:focus { border-color: #888780; }
+  .sidebar-count { font-size: 10px; color: #888780; padding: 6px 12px 4px; flex-shrink: 0; }
+  .edge-list { overflow-y: auto; flex: 1; }
+  .edge-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: background 0.1s;
+  }
+  .edge-item:hover { background: #F5F4F0; }
+  .edge-item.active { background: #F0EFE9; }
+  .edge-item.critical { border-left-color: #E24B4A; }
+  .edge-item.warning  { border-left-color: #BA7517; }
+  .edge-item.active.critical { background: #FDF2F2; }
+  .edge-item.active.warning  { background: #FDF6EC; }
+  .edge-name { font-size: 12px; font-weight: 500; color: #2C2C2A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .edge-meta { font-size: 10px; color: #888780; margin-top: 1px; }
+  .badge { display: inline-block; font-size: 9px; font-weight: 500; padding: 1px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle; }
+  .badge.critical { background: #FCEBEB; color: #A32D2D; }
+  .badge.warning  { background: #FAEEDA; color: #854F0B; }
+
+  .main { display: flex; flex-direction: column; overflow-y: auto; padding: 14px; gap: 10px; background: #F5F4F0; }
+
+  .alert { padding: 10px 14px; border-radius: 7px; border: 1px solid; flex-shrink: 0; }
+  .alert.ok       { background: #F0F7EC; border-color: #C0DD97; color: #3B6D11; }
+  .alert.warning  { background: #FDF6EC; border-color: #FAC775; color: #854F0B; }
+  .alert.critical { background: #FDF2F2; border-color: #F7C1C1; color: #A32D2D; }
+  .alert-title { font-size: 12px; font-weight: 500; }
+  .alert-msg   { font-size: 11px; margin-top: 2px; opacity: 0.85; }
+
+  .metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; flex-shrink: 0; }
+  .mc { background: #fff; border: 1px solid #E0DED8; border-radius: 7px; padding: 10px 12px; }
+  .mc-label { font-size: 10px; color: #888780; margin-bottom: 3px; }
+  .mc-value { font-size: 18px; font-weight: 500; color: #2C2C2A; }
+
+  .charts-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .chart-box { background: #fff; border: 1px solid #E0DED8; border-radius: 7px; padding: 12px; }
+  .chart-title { font-size: 11px; color: #888780; margin-bottom: 6px; }
+  .chart-plot { width: 100%; height: 220px; }
+
+  .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #888780; gap: 8px; }
+  .empty-hint { font-size: 11px; opacity: 0.7; }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #D3D1C7; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">Bottleneck Detector</div>
+  <div class="path-group">
+    <input class="path-input" id="path-input" type="text" placeholder="Путь к файлу или директории..." value="resources/alibaba/">
+    <button class="load-btn" id="load-btn" onclick="loadData()">Загрузить</button>
+  </div>
+  <div class="header-status" id="header-status"></div>
+</div>
+
+<div class="body">
+  <div class="sidebar">
+    <div class="sidebar-search">
+      <input type="text" id="search-input" placeholder="Поиск..." oninput="filterEdges()">
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:#5F5E5A;">
+          <input type="checkbox" id="filter-bottleneck" onchange="filterEdges()"
+            style="width:13px;height:13px;cursor:pointer;">
+          Только bottleneck
+        </label>
+      </div>
+    </div>
+    <div class="sidebar-count" id="sidebar-count"></div>
+    <div class="edge-list" id="edge-list"></div>
+  </div>
+
+  <div class="main" id="main">
+    <div class="empty" id="empty-state">
+      <div>Загрузите данные для начала работы</div>
+      <div class="empty-hint">Укажите путь к файлу .csv / .gz или директории</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PLOTLY_CONFIG = { displayModeBar: false, responsive: true };
+const LAYOUT = {
+  margin: { l: 44, r: 10, t: 10, b: 36 },
+  paper_bgcolor: '#fff',
+  plot_bgcolor: '#fff',
+  font: { family: 'Segoe UI, system-ui, sans-serif', size: 10, color: '#888780' },
+  xaxis: { gridcolor: '#F0EFE9', linecolor: '#D3D1C7', zerolinecolor: '#E0DED8' },
+  yaxis: { gridcolor: '#F0EFE9', linecolor: '#D3D1C7', zerolinecolor: '#E0DED8' },
+  showlegend: false,
+};
+
+let allEdges = [];
+let selectedEdge = null;
+
+async function loadData() {
+  const path = document.getElementById('path-input').value.trim();
+  if (!path) return;
+
+  const btn = document.getElementById('load-btn');
+  btn.disabled = true;
+  document.getElementById('header-status').textContent = 'Парсинг файлов...';
+
+  try {
+    const loadResp = await fetch('/api/load', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    });
+    const loadData = await loadResp.json();
+    if (loadData.error) throw new Error(loadData.error);
+
+    document.getElementById('header-status').textContent =
+      'Анализ ' + loadData.edges + ' рёбер...';
+
+    const edgesResp = await fetch('/api/edges');
+    allEdges = await edgesResp.json();
+    if (allEdges.error) throw new Error(allEdges.error);
+
+    const bottlenecks = allEdges.filter(e => e.is_bottleneck).length;
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('header-status').textContent =
+      allEdges.length + ' рёбер · ' + bottlenecks + ' bottleneck';
+    renderEdgeList(allEdges);
+
+  } catch (e) {
+    document.getElementById('header-status').textContent = 'Ошибка: ' + e.message;
+  }
+
+  btn.disabled = false;
+}
+
+function renderEdgeList(edges) {
+  const sorted = [...edges].sort((a, b) => b.records_amount - a.records_amount);
+  document.getElementById('sidebar-count').textContent = sorted.length + ' рёбер';
+  document.getElementById('edge-list').innerHTML = sorted.map(e => {
+    const sev = e.is_bottleneck ? e.severity : 'ok';
+    const badge = (sev === 'critical' || sev === 'warning')
+      ? '<span class="badge ' + sev + '">' + sev + '</span>' : '';
+    const sevCls    = (sev === 'critical' || sev === 'warning') ? ' ' + sev : '';
+    const activeCls = selectedEdge === e.name ? ' active' : '';
+    return '<div class="edge-item' + sevCls + activeCls + '" onclick="selectEdge(\'' +
+      e.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">' +
+      '<div class="edge-name">' + e.source + ' → ' + e.destination + '/' + e.rpc_type + badge + '</div>' +
+      '<div class="edge-meta">' + e.records_amount.toLocaleString() + ' зап.</div>' +
+      '</div>';
+  }).join('');
+}
+
+function filterEdges() {
+  const q      = document.getElementById('search-input').value.toLowerCase();
+  const onlyBn = document.getElementById('filter-bottleneck').checked;
+  let filtered = allEdges;
+  if (q)      filtered = filtered.filter(e => e.name.toLowerCase().includes(q));
+  if (onlyBn) filtered = filtered.filter(e => e.is_bottleneck);
+  filtered = filtered.filter(e => e.bin_count >= 3);
+  renderEdgeList(filtered);
+}
+
+async function selectEdge(name) {
+  selectedEdge = name;
+  filterEdges();
+
+  document.getElementById('header-status').textContent = 'Анализ...';
+
+  const resp = await fetch('/api/analyse/' + encodeURIComponent(name));
+  const analysis = await resp.json();
+  if (analysis.error) {
+    document.getElementById('header-status').textContent = 'Ошибка: ' + analysis.error;
+    return;
+  }
+
+  const edgeInfo = allEdges.find(e => e.name === name);
+  const detection = edgeInfo
+    ? { is_bottleneck: edgeInfo.is_bottleneck, severity: edgeInfo.severity }
+    : null;
+
+  document.getElementById('header-status').textContent = allEdges.length + ' рёбер';
+  renderDashboard(analysis, detection);
+}
+
+function renderDashboard(analysis, detection) {
+  const sev = detection && detection.is_bottleneck ? detection.severity : 'ok';
+
+  document.getElementById('main').innerHTML =
+    '<div class="alert ' + sev + '">' +
+      '<div class="alert-title" id="alert-title"></div>' +
+      '<div class="alert-msg"   id="alert-msg"></div>' +
+    '</div>' +
+    '<div class="metrics">' +
+      '<div class="mc"><div class="mc-label">Median</div><div class="mc-value">' + analysis.global_p50_ms.toFixed(1) + ' ms</div></div>' +
+      '<div class="mc"><div class="mc-label">P75</div><div class="mc-value">' + analysis.global_p75_ms.toFixed(1) + ' ms</div></div>' +
+      '<div class="mc"><div class="mc-label">P95</div><div class="mc-value">' + analysis.global_p95_ms.toFixed(1) + ' ms</div></div>' +
+      '<div class="mc"><div class="mc-label">Max</div><div class="mc-value">' + analysis.global_max_ms.toFixed(0) + ' ms</div></div>' +
+      '<div class="mc"><div class="mc-label">Записей</div><div class="mc-value">' + analysis.total_records.toLocaleString() + '</div></div>' +
+    '</div>' +
+    '<div class="charts-grid">' +
+      '<div class="chart-box"><div class="chart-title">P95 latency по RPS-бинам</div><div class="chart-plot" id="ch-bins"></div></div>' +
+      '<div class="chart-box"><div class="chart-title">RPS от времени</div><div class="chart-plot" id="ch-rps"></div></div>' +
+      '<div class="chart-box"><div class="chart-title">Latency от времени</div><div class="chart-plot" id="ch-lat"></div></div>' +
+      '<div class="chart-box"><div class="chart-title">P50 / P75 / P95 от времени</div><div class="chart-plot" id="ch-pct"></div></div>' +
+      '<div class="chart-box"><div class="chart-title">RPS и P95 от времени</div><div class="chart-plot" id="ch-rps-p95"></div></div>' +
+    '</div>';
+
+    if (detection && detection.is_bottleneck) {
+        document.getElementById('alert-title').textContent = 'Bottleneck — ' + detection.severity;
+        const det = allEdges.find(e => e.name === analysis.edge_name);
+        const growth = det && det.p95_growth ? ' (рост P95: ' + det.p95_growth.toFixed(1) + 'x)' : '';
+        document.getElementById('alert-msg').textContent =
+                ((det && det.message) ? det.message : 'Обнаружен ускоренный рост P95 с увеличением RPS') + growth;
+  } else {
+    document.getElementById('alert-title').textContent = 'Bottleneck не обнаружен';
+    document.getElementById('alert-msg').textContent =
+      'P95 latency не демонстрирует ускоренного роста с увеличением RPS';
+  }
+
+  const bins = analysis.rps_bins   || [];
+  const ps   = analysis.per_second || [];
+
+  const tsMin = ps.length ? ps[0].timestamp : 0;
+  const tsMax = ps.length ? ps[ps.length - 1].timestamp : 1;
+  const xAxis = { ...LAYOUT.xaxis, title: { text: 'время (сек)', standoff: 8 }, range: [tsMin, tsMax] };
+
+  // P95 latency по RPS-бинам
+  // Разбиваем на два трейса: надёжные и ненадёжные бины
+  const reliableBins   = bins.filter(b => b.is_reliable);
+  const unreliableBins = bins.filter(b => !b.is_reliable);
+
+  // Вертикальные разделители между бинами
+  const binShapes = bins.map(b => ({
+    type: 'line',
+    xref: 'x', yref: 'paper',
+    x0: b.rps_center, x1: b.rps_center,
+    y0: 0, y1: 1,
+    line: { color: '#D3D1C7', width: 1, dash: 'dot' },
+  }));
+
+  const binTraces = [];
+  if (reliableBins.length) binTraces.push({
+    x: reliableBins.map(b => b.rps_center),
+    y: reliableBins.map(b => b.p95_ms),
+    mode: 'lines+markers',
+    name: 'надёжный',
+    line:   { color: '#E24B4A', width: 2 },
+    marker: { size: 6, color: '#E24B4A' },
+    hovertemplate: 'RPS=%{x}<br>P95=%{y:.1f} ms<br>надёжный<extra></extra>',
+  });
+  if (unreliableBins.length) binTraces.push({
+    x: unreliableBins.map(b => b.rps_center),
+    y: unreliableBins.map(b => b.p95_ms),
+    mode: 'markers',
+    name: 'ненадёжный (мало данных)',
+    marker: { size: 7, color: '#F09595', symbol: 'circle-open', line: { width: 2, color: '#F09595' } },
+    hovertemplate: 'RPS=%{x}<br>P95=%{y:.1f} ms<br>ненадёжный — мало точек<extra></extra>',
+  });
+
+  Plotly.newPlot('ch-bins', binTraces, { ...LAYOUT,
+    showlegend: true,
+    legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,0.85)',
+              bordercolor: '#E0DED8', borderwidth: 1, font: { size: 10 } },
+    xaxis: { ...LAYOUT.xaxis, title: { text: 'RPS', standoff: 8 } },
+    yaxis: { ...LAYOUT.yaxis, title: { text: 'ms',  standoff: 4 } },
+    shapes: binShapes,
+  }, PLOTLY_CONFIG);
+
+  // RPS от времени
+  Plotly.newPlot('ch-rps', [{
+    x: ps.map(s => s.timestamp),
+    y: ps.map(s => s.rps),
+    mode: 'lines',
+    line: { color: '#1D9E75', width: 1.5 },
+    hovertemplate: 't=%{x:.0f}s<br>RPS=%{y:.0f}<extra></extra>',
+  }], { ...LAYOUT,
+    xaxis: xAxis,
+    yaxis: { ...LAYOUT.yaxis, title: { text: 'RPS', standoff: 4 } },
+  }, PLOTLY_CONFIG);
+
+  // Latency от времени — сырые точки
+  Plotly.newPlot('ch-lat', [{
+    x: analysis.raw_timestamps,
+    y: analysis.raw_latencies,
+    mode: 'markers',
+    marker: { size: 2, color: '#378ADD', opacity: 0.4 },
+    hovertemplate: 't=%{x:.0f}s<br>lat=%{y:.1f} ms<extra></extra>',
+  }], { ...LAYOUT,
+    xaxis: xAxis,
+    yaxis: { ...LAYOUT.yaxis, title: { text: 'ms', standoff: 4 } },
+  }, PLOTLY_CONFIG);
+
+  // P50 / P75 / P95 от времени
+  Plotly.newPlot('ch-pct', [
+    { x: ps.map(s => s.timestamp), y: ps.map(s => s.p95_ms), mode: 'lines', name: 'P95',
+      line: { color: '#E24B4A', width: 1.5 }, hovertemplate: 'P95=%{y:.1f}ms<extra></extra>' },
+    { x: ps.map(s => s.timestamp), y: ps.map(s => s.p75_ms), mode: 'lines', name: 'P75',
+      line: { color: '#BA7517', width: 1.5 }, hovertemplate: 'P75=%{y:.1f}ms<extra></extra>' },
+    { x: ps.map(s => s.timestamp), y: ps.map(s => s.p50_ms), mode: 'lines', name: 'P50',
+      line: { color: '#378ADD', width: 1.5 }, hovertemplate: 'P50=%{y:.1f}ms<extra></extra>' },
+  ], { ...LAYOUT,
+    showlegend: true,
+    legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,0.85)',
+              bordercolor: '#E0DED8', borderwidth: 1, font: { size: 10 } },
+    xaxis: xAxis,
+    yaxis: { ...LAYOUT.yaxis, title: { text: 'ms', standoff: 4 } },
+  }, PLOTLY_CONFIG);
+
+  // RPS и P95 от времени — совмещённый с двумя осями Y
+  Plotly.newPlot('ch-rps-p95', [
+    {
+      x: ps.map(s => s.timestamp),
+      y: ps.map(s => s.rps),
+      name: 'RPS',
+      mode: 'lines',
+      line: { color: '#1D9E75', width: 1.5 },
+      yaxis: 'y',
+      hovertemplate: 'RPS=%{y:.0f}<extra></extra>',
+    },
+    {
+      x: ps.map(s => s.timestamp),
+      y: ps.map(s => s.p95_ms),
+      name: 'P95',
+      mode: 'lines',
+      line: { color: '#E24B4A', width: 1.5 },
+      yaxis: 'y2',
+      hovertemplate: 'P95=%{y:.1f}ms<extra></extra>',
+    },
+  ], { ...LAYOUT,
+    showlegend: true,
+    legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,0.85)',
+              bordercolor: '#E0DED8', borderwidth: 1, font: { size: 10 } },
+    xaxis: xAxis,
+    yaxis: {
+      ...LAYOUT.yaxis,
+      title: { text: 'RPS', standoff: 4 },
+      side: 'left',
+    },
+    yaxis2: {
+      title: { text: 'P95 (ms)', standoff: 4 },
+      overlaying: 'y',
+      side: 'right',
+      gridcolor: 'transparent',
+      linecolor: '#D3D1C7',
+      tickfont: { color: '#E24B4A', size: 10 },
+      titlefont: { color: '#E24B4A', size: 10 },
+    },
+  }, PLOTLY_CONFIG);
+}
+</script>
+</body>
+</html>
