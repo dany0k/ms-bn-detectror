@@ -1,3 +1,9 @@
 .venv
 .idea
 __pycache__
+
+backend/resources/alibaba.*
+backend/resources/alibaba/*
+backend/*.db
+
+frontend/node_modules
