@@ -1,148 +1,158 @@
-# Bottleneck Detector v2.0
+# MS Bottleneck Detector — v2 Monorepo
 
-Система анализа логов микросервисов для выявления узких мест (bottlenecks).
+Инструмент автоматического обнаружения узких мест в микросервисных системах.
 
-## Особенности
+## Структура
 
-- **Чистая архитектура**: разделение на domain/infrastructure/application/presentation
-- **Dependency Injection**: все компоненты легко тестируются и заменяются
-- **Множественные детекторы**: SlopeDetector (по наклону) и ThresholdDetector (по порогам)
-- **Визуализация**: scatter, binned, time series и 3D surface графики
-- **Экспорт**: JSON отчёты и консольный вывод
+```
+ms-bn-detector/
+├── backend/    # Flask + SQLAlchemy + SQLite
+└── frontend/   # React + Vite + Recharts
+```
 
-## Установка
+## Запуск
+
+### Backend
 
 ```bash
+cd backend
+python -m venv .venv
+
+# Windows
+.venv\Scripts\activate
+# Linux/Mac
+source .venv/bin/activate
+
 pip install -r requirements.txt
+
+# Запуск (из папки backend/)
+python main.py
+# или явно указать БД:
+python main.py --db sqlite:///bottleneck.db --port 5000
 ```
 
-## Использование
+> **Важно:** запускать `python main.py` нужно именно из папки `backend/`,  
+> либо через `python -m` из корня: `python -m backend.main`
 
-### Анализ логов
+### Frontend
+
+Сначала убедись что npm актуальный — ошибка `cb() never called` означает npm 6.x:
 
 ```bash
-# Базовый анализ
-python -m bn_detector.main analyze -l logs_bn.csv
+# Обновить npm
+npm install -g npm@latest
 
-# С JSON отчётом
-python -m bn_detector.main analyze -l logs_bn.csv --json
-
-# Без графиков
-python -m bn_detector.main analyze -l logs_bn.csv --no-plots
-
-# Подробный вывод
-python -m bn_detector.main analyze -l logs_bn.csv -v
+# Затем
+cd frontend
+npm install
+npm run dev      # http://localhost:5173
 ```
 
-### Генерация тестовых логов
+Альтернативно через yarn (если npm не обновляется):
 
 ```bash
-# С настройками по умолчанию
-python -m bn_detector.main generate -o test_logs.csv
-
-# С кастомной конфигурацией
-python -m bn_detector.main generate -o test_logs.csv -c config.json
-
-# С указанием длительности
-python -m bn_detector.main generate -o test_logs.csv -d 600
+npm install -g yarn
+cd frontend
+yarn install
+yarn dev
 ```
 
-### Программное использование
+Фронт проксирует `/api` → `localhost:5000` через Vite — CORS не нужен.
 
-```python
-from bn_detector import (
-    CsvLogReader,
-    ServiceGraph,
-    LogAnalyzer,
-    SlopeDetector,
-    ThresholdDetector,
-    ScatterPlotter,
-    ConsoleExporter,
-)
+## API
 
-# Создаём компоненты
-reader = CsvLogReader("logs_bn.csv")
-graph = ServiceGraph()
-detectors = [SlopeDetector(), ThresholdDetector()]
-plotters = [ScatterPlotter(graph)]
-
-# Запускаем анализ
-analyzer = LogAnalyzer(
-    reader=reader,
-    graph=graph,
-    detectors=detectors,
-    plotters=plotters,
-)
-
-report = analyzer.run()
-
-# Выводим результаты
-ConsoleExporter(verbose=True).export(report)
-```
-
-## Структура проекта
+### Проекты
 
 ```
-bn_detector/
-├── config/              # Конфигурация
-│   └── settings.py
-├── domain/              # Бизнес-логика (без внешних зависимостей)
-│   ├── models.py        # Sample, LogEntry, EdgeMetrics, NodeMetrics
-│   ├── graph.py         # ServiceGraph
-│   └── detection/       # Детекторы bottleneck
-│       ├── base.py
-│       ├── slope_detector.py
-│       └── threshold_detector.py
-├── infrastructure/      # Внешние интеграции
-│   ├── readers/         # Чтение логов
-│   │   └── csv_reader.py
-│   └── generators/      # Генерация логов
-│       └── log_generator.py
-├── application/         # Use cases
-│   ├── analyzer.py      # LogAnalyzer
-│   └── alert_service.py
-├── presentation/        # Вывод результатов
-│   ├── plotting/        # Графики
-│   └── exporters/       # JSON, консоль
-├── tests/
-└── main.py              # CLI
+GET    /api/projects                     — список проектов
+POST   /api/projects                     — создать проект
+         body: { name, description, format }
+GET    /api/projects/<id>                — детали проекта
+DELETE /api/projects/<id>                — удалить проект
+
+POST   /api/projects/<id>/load           — загрузить логи (создаёт снапшот)
+         body: { path: "resources/alibaba/" }
+
+GET    /api/projects/<id>/edges          — рёбра с фильтрами + пагинация
+         ?severity=critical|warning|ok
+         ?rpc_type=http|rpc
+         ?service=mc-1
+         ?min_p95_growth=2.0
+         ?sort_by=p95_growth|records_amount|severity|source
+         ?page=1&page_size=50
+
+GET    /api/projects/<id>/snapshots      — история загрузок
+GET    /api/projects/<id>/analyse/<edge> — детальный анализ ребра
 ```
 
-## Формат логов
+### Legacy (обратная совместимость)
 
-CSV с колонками:
 ```
-traceId,spanId,parentSpanId,timestamp,srcService,srcRoute,dstService,dstRoute,latency_ms,latency,rps
+POST /api/load
+GET  /api/edges
+GET  /api/analyse/<edge>
 ```
 
-## Детекторы
+Инструмент автоматического обнаружения узких мест в микросервисных системах.
 
-### SlopeDetector
-Детектирует bottleneck когда latency растёт пропорционально RPS.
-Вычисляет наклон линейной регрессии `latency(rps)`.
+## Структура
 
-### ThresholdDetector  
-Детектирует bottleneck когда средняя latency превышает пороги.
-Поддерживает статические и адаптивные пороги.
+```
+ms-bn-detector/
+├── backend/    # Flask + SQLAlchemy + SQLite
+└── frontend/   # React + Vite + Recharts
+```
 
-## Тестирование
+## Запуск
+
+### Backend
 
 ```bash
-pytest bn_detector/tests/ -v
+cd backend
+pip install -r requirements.txt
+python main.py --db sqlite:///bottleneck.db --port 5000
 ```
 
-## Переменные окружения
+### Frontend
 
-| Переменная | Описание | По умолчанию |
-|------------|----------|--------------|
-| BN_LOG_FILE | Путь к логам | resources/generated_logs.csv |
-| BN_OUTPUT_DIR | Директория вывода | output |
-| BN_MODE | Режим (offline/online) | offline |
-| BN_MIN_SAMPLES | Минимум samples | 10 |
-| BN_SLOPE_CRITICAL | Порог наклона | 2.0 |
-| BN_LATENCY_WARN | Warning порог | 150.0 |
-| BN_LATENCY_CRITICAL | Critical порог | 250.0 |
+```bash
+cd frontend
+npm install
+npm run dev      # http://localhost:5173
+```
 
-## Лицензия
+Фронт проксирует `/api` → `localhost:5000` через Vite.
 
-MIT
+## API
+
+### Проекты
+
+```
+GET    /api/projects                     — список проектов
+POST   /api/projects                     — создать проект
+         body: { name, description, format }
+GET    /api/projects/<id>                — детали проекта
+DELETE /api/projects/<id>                — удалить проект
+
+POST   /api/projects/<id>/load           — загрузить логи (создаёт снапшот)
+         body: { path: "resources/alibaba/" }
+
+GET    /api/projects/<id>/edges          — рёбра с фильтрами + пагинация
+         ?severity=critical|warning|ok
+         ?rpc_type=http|rpc
+         ?service=mc-1
+         ?min_p95_growth=2.0
+         ?sort_by=p95_growth|records_amount|severity|source
+         ?page=1&page_size=50
+
+GET    /api/projects/<id>/snapshots      — история загрузок
+GET    /api/projects/<id>/analyse/<edge> — детальный анализ ребра
+```
+
+### Legacy (обратная совместимость)
+
+```
+POST /api/load
+GET  /api/edges
+GET  /api/analyse/<edge>
+```

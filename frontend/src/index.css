@@ -1,0 +1,217 @@
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── Light theme (default) ── */
+:root, [data-theme="light"] {
+    --bg: #EEECEA;
+    --surface: #FFFFFF;
+    --surface2: #F2F1ED;
+    --border: #D4D2CB;
+    --border2: #B8B6AE;
+    --accent: #3557E8;
+    --accent-dk: #2444CC;
+    --ok: #276010;
+    --ok-bg: #EBF5E4;
+    --ok-border: #A8CC80;
+    --warning: #7A4208;
+    --warning-bg: #FBF0E0;
+    --warning-border: #E8A84A;
+    --critical: #8F2020;
+    --critical-bg: #FAEBEB;
+    --critical-border: #E09090;
+    --text: #1A1A18;
+    --text2: #3D3D3A;
+    --muted: #6B6A65;
+    --radius: 7px;
+    --chart-grid: rgba(0, 0, 0, 0.055);
+    --chart-axis: #9A9890;
+    --rpc-bg: #E8E6E0;
+    --rpc-color: #2C2C2A;
+    --rpc-border: #C0BEB7;
+}
+
+/* ── Dark theme ── */
+[data-theme="dark"] {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232636;
+    --border: #2e3248;
+    --border2: #3d4260;
+    --accent: #6c8ef5;
+    --accent-dk: #4f6de8;
+    --ok: #34d399;
+    --ok-bg: #064e3b;
+    --ok-border: #065f46;
+    --warning: #fbbf24;
+    --warning-bg: #451a03;
+    --warning-border: #92400e;
+    --critical: #f87171;
+    --critical-bg: #450a0a;
+    --critical-border: #991b1b;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --muted: #64748b;
+    --chart-grid: rgba(255, 255, 255, 0.06);
+    --chart-axis: #64748b;
+    --rpc-bg: #2a2d3e;
+    --rpc-color: #c4cde4;
+    --rpc-border: #3d4260;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    transition: background .2s, color .2s;
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+button {
+    cursor: pointer;
+    border: none;
+    border-radius: var(--radius);
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+    transition: opacity .15s;
+}
+
+button:hover:not(:disabled) {
+    opacity: .82;
+}
+
+button:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: #fff;
+}
+
+.btn-ghost {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.btn-danger {
+    background: var(--critical-bg);
+    color: var(--critical);
+    border: 1px solid var(--critical-border);
+}
+
+input, select, textarea {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 6px 10px;
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    width: 100%;
+    transition: border-color .15s;
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+}
+
+/* RPC type tag — адаптируется под тему */
+.rpc-tag {
+    display: inline-block;
+    background: var(--rpc-bg);
+    color: var(--rpc-color);
+    border: 1px solid var(--rpc-border);
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: monospace;
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+
+.badge-ok {
+    background: var(--ok-bg);
+    color: var(--ok);
+    border: 1px solid var(--ok-border);
+}
+
+.badge-warning {
+    background: var(--warning-bg);
+    color: var(--warning);
+    border: 1px solid var(--warning-border);
+}
+
+.badge-critical {
+    background: var(--critical-bg);
+    color: var(--critical);
+    border: 1px solid var(--critical-border);
+}
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+}
+
+.spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.error-box {
+    background: var(--critical-bg);
+    border: 1px solid var(--critical-border);
+    border-radius: var(--radius);
+    padding: 9px 13px;
+    color: var(--critical);
+    font-size: 12px;
+}
+
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border2);
+    border-radius: 3px;
+}
