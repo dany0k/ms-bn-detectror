@@ -19,7 +19,7 @@ const AXIS = 'var(--chart-axis)'
 
 export function EdgeChart({analysis}: Props) {
     const binData = analysis.rps_bins.map(b => ({
-        rps: Math.round(b.rps_mid * 10) / 10,
+        rps: Math.round(b.rps_center * 10) / 10,
         P50: Math.round(b.p50_ms),
         P75: Math.round(b.p75_ms),
         P95: Math.round(b.p95_ms),

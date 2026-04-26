@@ -41,7 +41,7 @@ export interface EdgePage {
 export interface RpsBin {
     rps_min: number
     rps_max: number
-    rps_mid: number
+    rps_center: number
     p50_ms: number
     p75_ms: number
     p95_ms: number

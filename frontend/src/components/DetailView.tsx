@@ -151,7 +151,7 @@ export function DetailView({projectId}: Props) {
     })
 
     const binData = analysis?.rps_bins.map(b => ({
-        rps: +b.rps_mid.toFixed(1),
+        rps: +b.rps_center.toFixed(1),
         P50: Math.round(b.p50_ms),
         P75: Math.round(b.p75_ms),
         P95: Math.round(b.p95_ms),
